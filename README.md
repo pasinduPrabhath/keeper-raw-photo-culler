@@ -34,12 +34,19 @@ Keeper is built for exactly this job:
 <img src="docs/screenshots/3-loupe.png" alt="Keeper loupe view: fast RAW preview with filmstrip, zoom and EXIF inspector" width="900">
 </div>
 
+<div align="center">
+<img src="docs/screenshots/5-compare.png" alt="Keeper burst compare view: every frame zoomed to the same spot to pick the sharpest" width="900">
+<br><sub>Compare view: zoom once, every frame of the burst zooms to the same spot.</sub>
+</div>
+
 ## Features
 
 - **Instant RAW browsing.** Parses the TIFF structure of ARW/DNG/NEF/CR2/ORF files directly and decodes only the embedded preview. Thumbnails and sharpness scores are cached on disk, so re-opening a folder is immediate.
 - **Multiple folders.** Open several folders at once (⌘-click in the chooser, drop them on the window, or **Add Folder…**). They merge into one timeline, so bursts that span memory cards or days are grouped correctly. Each folder keeps its own saved flags, and "Include subfolders" handles nested folders.
 - **Burst detection.** Frames within a configurable gap (default 1 s) form a burst. Bursts are shown as sections with time span and frame count, and can be collapsed to their best frame.
 - **Sharpest-frame scoring.** Splits the frame into tiles, measures local contrast (Laplacian variance) and scores the sharpest 5% of tiles. A sharp bird on a creamy blurred background wins, and a motion-blurred or missed-focus frame loses.
+- **Compare bursts side by side.** Press `C` on any burst to see every frame on one screen with **linked zoom and pan**: pinch on the bird's eye once and all frames zoom to the same spot. Click one, or hit **Keep selected, reject others**.
+- **Built-in help and auto-update.** Press `?` for in-app help. Keeper tells you when a new release is out and can install it (optional, see Privacy).
 - **Zoom to check focus.** Pinch on the trackpad, ⌘/⌥ + scroll, `+`/`-`, or double-click, all anchored on the point under your cursor. Fit / 100% / 200% buttons, drag or two-finger scroll to pan. 100% uses the camera's full-size embedded JPEG, so it is instant.
 - **Culling the way you think.** Pick (`P`), Reject (`X`), stars (`1`–`5`), auto-advance, shift/cmd multi-select, rubber-stamp a whole burst with **Keep best** (`K`).
 - **Safe deletion.** Rejects (and their RAW+JPEG+XMP siblings) go to the macOS Trash after a confirmation showing the total size. Every flag change and every trash is undoable with `⌘Z`.

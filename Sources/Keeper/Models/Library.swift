@@ -52,7 +52,7 @@ enum UndoEntry {
 
 @MainActor @Observable
 final class Library {
-    enum Mode { case grid, loupe }
+    enum Mode { case grid, loupe, compare }
     enum Phase: Equatable { case idle, scanning(done: Int, total: Int) }
 
     // MARK: Source
@@ -85,6 +85,41 @@ final class Library {
     var maxZoom: Double { max(3, zoomFull * 2) }
 
     func resetZoom() { zoom = 1; pan = .zero }
+
+    // MARK: Compare (all frames of a burst side by side, zoom and pan linked)
+    var cmpZoom: Double = 1
+    /// Pan in units of the cell size, shared by every cell.
+    var cmpPan: CGSize = .zero
+    private var modeBeforeCompare: Mode = .grid
+
+    var compareItems: [PhotoItem] {
+        guard let item = activeItem else { return [] }
+        let members = burst(of: item)
+        guard members.count > 12, let i = members.firstIndex(where: { $0 === item }) else { return members }
+        let start = min(max(i - 6, 0), members.count - 12)
+        return Array(members[start ..< start + 12])
+    }
+    var canCompare: Bool { activeItem.map { burst(of: $0).count > 1 } ?? false }
+
+    func enterCompare() {
+        guard canCompare else { showToast("Compare works on bursts. Select a photo that's part of a burst.", symbol: "square.stack.3d.down.right"); return }
+        if mode != .compare { modeBeforeCompare = mode }
+        cmpZoom = 1; cmpPan = .zero
+        mode = .compare
+    }
+    func exitCompare() { mode = modeBeforeCompare == .compare ? .grid : modeBeforeCompare }
+    func moveCompare(_ delta: Int) {
+        let list = compareItems
+        guard let i = list.firstIndex(where: { $0.id == activeID }) else { return }
+        select(list[min(max(i + delta, 0), list.count - 1)], .replace)
+    }
+    /// Pick one frame and reject the rest of its burst (undoable).
+    func keepOnly(_ keeper: PhotoItem, among all: [PhotoItem]) {
+        record(all) { $0.flag = ($0 === keeper) ? .pick : .reject }
+        showFlash(.pick)
+        showToast("Kept \(keeper.baseName) · \(all.count - 1) rejected", symbol: "checkmark.circle.fill",
+                  actionTitle: "Undo") { [weak self] in self?.undo() }
+    }
     func zoomIn() { applyZoom(zoom * 1.4) }
     func zoomOut() { applyZoom(zoom / 1.4) }
     /// 1 = 100% (one image pixel per screen pixel), 2 = 200%.

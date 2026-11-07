@@ -102,7 +102,7 @@ public final class PreviewCache: @unchecked Sendable {
     public static let shared = PreviewCache()
     fileprivate final class Box { let image: CGImage; init(_ i: CGImage) { image = i } }
     fileprivate let cache = NSCache<NSString, Box>()
-    private init() { cache.countLimit = 14 }
+    private init() { cache.countLimit = 28 }
 
     public func cached(_ url: URL, maxPixel: Int) -> CGImage? {
         cache.object(forKey: "\(url.path)|\(maxPixel)" as NSString)?.image

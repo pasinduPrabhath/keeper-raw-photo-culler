@@ -40,6 +40,25 @@ enum SnapshotRunner {
         try? await Task.sleep(nanoseconds: 1_000_000_000)
         snap("4-picks", in: dir)
 
+        // Compare view: all frames of a burst, then linked zoom.
+        library.filter = .all
+        library.mode = .grid
+        if let burstItem = library.items.first(where: { library.burst(of: $0).count > 3 }) {
+            library.select(burstItem, .replace)
+            library.enterCompare()
+            try? await Task.sleep(nanoseconds: 2_500_000_000)
+            snap("6-compare", in: dir)
+            library.cmpZoom = 3; library.cmpPan = CGSize(width: -0.25, height: -0.1)
+            try? await Task.sleep(nanoseconds: 800_000_000)
+            snap("7-compare-zoom", in: dir)
+            library.exitCompare()
+        }
+        let help = ImageRenderer(content: HelpView().environment(\.colorScheme, .dark))
+        help.scale = 2
+        if let img = help.nsImage, let tiff = img.tiffRepresentation, let rep = NSBitmapImageRep(data: tiff), let png = rep.representation(using: .png, properties: [:]) {
+            try? png.write(to: dir.appendingPathComponent("8-help.png"))
+        }
+
         // Optional end-to-end check of the destructive path: trash every reject, then undo.
         // Only run it against a COPY of your photos.
         if ProcessInfo.processInfo.environment["KEEPER_SELFTEST_TRASH"] == "1", let folder = library.folder {

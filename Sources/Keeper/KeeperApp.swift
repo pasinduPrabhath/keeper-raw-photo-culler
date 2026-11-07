@@ -64,6 +64,7 @@ struct KeeperCommands: Commands {
         CommandMenu("Photo") {
             Button("Pick  (P)") { library.setFlag(.pick) }
             Button("Reject  (X)") { library.setFlag(.reject) }
+            Button("Compare Burst  (C)") { library.enterCompare() }
             Button("Clear Flag  (U)") { library.setFlag(.none) }
             Divider()
             Button("Auto-Cull Bursts") { library.autoCull() }.keyboardShortcut("k")
@@ -81,6 +82,10 @@ struct KeeperCommands: Commands {
             Divider()
             Button("Export JPEGs…") { NotificationCenter.default.post(name: .keeperShowExport, object: nil) }.keyboardShortcut("e")
             Button("Upload to Google Drive…") { NotificationCenter.default.post(name: .keeperShowUpload, object: nil) }.keyboardShortcut("u")
+        }
+
+        CommandGroup(replacing: .help) {
+            Button("Keeper Help") { NotificationCenter.default.post(name: .keeperShowHelp, object: nil) }.keyboardShortcut("?")
         }
 
         CommandMenu("Zoom") {

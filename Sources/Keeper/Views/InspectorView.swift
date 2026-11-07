@@ -77,6 +77,10 @@ private struct SinglePanel: View {
                 VStack(alignment: .leading, spacing: 10) {
                     SectionLabel(text: "Burst")
                     InfoRow(label: "Frames", value: "\(members.count)")
+                    Button { withAnimation(Theme.quick) { lib.enterCompare() } } label: {
+                        Label("Compare all \(members.count) frames", systemImage: "square.on.square").font(.system(size: 12, weight: .semibold))
+                    }
+                    .buttonStyle(.plain).foregroundStyle(Theme.burst)
                     if let s = item.sharpness, let best = members.compactMap(\.sharpness).max(), best > 0 {
                         HStack {
                             Text("Sharpness").foregroundStyle(Theme.textSecondary)

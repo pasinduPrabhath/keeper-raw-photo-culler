@@ -8,6 +8,7 @@ struct RootView: View {
     @Environment(UpdateService.self) private var updates
     @State private var showUpload = false
     @State private var showExport = false
+    @State private var showHelp = false
     @State private var sidebar: NavigationSplitViewVisibility = .all
     @FocusState private var focused: Bool
 
@@ -36,6 +37,7 @@ struct RootView: View {
         .onChange(of: showExport) { _, _ in focused = true }
         .sheet(isPresented: $showUpload) { DriveUploadSheet() }
         .sheet(isPresented: $showExport) { ExportSheet() }
+        .sheet(isPresented: $showHelp) { HelpView() }
         .confirmationDialog(trashTitle(lib.pendingTrash ?? []),
                             isPresented: Binding(get: { lib.pendingTrash != nil }, set: { if !$0 { lib.pendingTrash = nil } }),
                             titleVisibility: .visible, presenting: lib.pendingTrash) { items in
@@ -68,7 +70,7 @@ struct RootView: View {
             }
             if SnapshotRunner.directory != nil { await SnapshotRunner.run(library: library) }
         }
-        .background(MenuBridge(showUpload: $showUpload, showExport: $showExport))
+        .background(MenuBridge(showUpload: $showUpload, showExport: $showExport, showHelp: $showHelp))
     }
 
     // MARK: - Detail
@@ -79,6 +81,7 @@ struct RootView: View {
             Theme.bg
             if lib.isEmpty { EmptyStateView() }
             else if lib.mode == .grid { GridView().transition(.opacity) }
+            else if lib.mode == .compare { CompareView().transition(.opacity) }
             else { LoupeView().transition(.opacity) }
 
             if let flash = lib.flash {
@@ -142,7 +145,7 @@ struct RootView: View {
     @ToolbarContentBuilder private var toolbarContent: some ToolbarContent {
         @Bindable var lib = library
         ToolbarItem(placement: .principal) {
-            Picker("View", selection: $lib.mode) {
+            Picker("View", selection: Binding(get: { lib.mode == .compare ? .loupe : lib.mode }, set: { lib.mode = $0 })) {
                 Label("Grid", systemImage: "square.grid.3x3.fill").tag(Library.Mode.grid)
                 Label("Loupe", systemImage: "photo.fill").tag(Library.Mode.loupe)
             }
@@ -169,6 +172,12 @@ struct RootView: View {
             .help("Sort order")
             .disabled(lib.isEmpty)
 
+            Button { withAnimation(Theme.quick) { lib.mode == .compare ? lib.exitCompare() : lib.enterCompare() } } label: {
+                Label("Compare", systemImage: "square.on.square")
+            }
+            .help("Compare all frames of this burst side by side with linked zoom (C)")
+            .disabled(lib.isEmpty || (!lib.canCompare && lib.mode != .compare))
+
             Button { lib.autoCull() } label: { Label("Auto-cull bursts", systemImage: "sparkles") }
                 .help("In every burst, pick the sharpest frame and reject the rest (undoable)")
                 .disabled(lib.counts.bursts == 0)
@@ -194,6 +203,9 @@ struct RootView: View {
                 Button("Upload to Google Drive…", systemImage: "icloud.and.arrow.up") { showUpload = true }
             } label: { Label("Share", systemImage: "square.and.arrow.up") }
             .disabled(lib.isEmpty)
+
+            Button { showHelp = true } label: { Label("Help", systemImage: "questionmark.circle") }
+                .help("Help and shortcuts")
 
             Button { withAnimation(Theme.spring) { lib.showInspector.toggle() } } label: { Label("Inspector", systemImage: "sidebar.right") }
                 .help("Show or hide the inspector")
@@ -236,6 +248,15 @@ struct RootView: View {
             return .handled
         }
 
+        if lib.mode == .compare {
+            switch press.key {
+            case .leftArrow, .upArrow: lib.moveCompare(-1); return .handled
+            case .rightArrow, .downArrow: lib.moveCompare(1); return .handled
+            case .escape, .space, .return: withAnimation(Theme.quick) { lib.exitCompare() }; return .handled
+            default: break
+            }
+        }
+
         switch press.key {
         case .leftArrow: lib.move(-1, extend: shift)
         case .rightArrow: lib.move(1, extend: shift)
@@ -253,11 +274,17 @@ struct RootView: View {
             case "x": lib.setFlag(.reject)
             case "u": lib.setFlag(.none)
             case "0", "1", "2", "3", "4", "5": lib.setRating(Int(chars) ?? 0)
+            case "c": withAnimation(Theme.quick) { lib.mode == .compare ? lib.exitCompare() : lib.enterCompare() }
+            case "?", "/": NotificationCenter.default.post(name: .keeperShowHelp, object: nil)
             case "g": lib.mode = .grid
             case "e": lib.mode = .loupe
             case "z": if lib.mode == .loupe { withAnimation(Theme.spring) { lib.toggleZoom() } }
-            case "+", "=": if lib.mode == .loupe { withAnimation(Theme.quick) { lib.zoomIn() } }
-            case "-", "_": if lib.mode == .loupe { withAnimation(Theme.quick) { lib.zoomOut() } }
+            case "+", "=":
+                if lib.mode == .loupe { withAnimation(Theme.quick) { lib.zoomIn() } }
+                else if lib.mode == .compare { withAnimation(Theme.quick) { lib.cmpZoom = min(lib.cmpZoom * 1.4, 8) } }
+            case "-", "_":
+                if lib.mode == .loupe { withAnimation(Theme.quick) { lib.zoomOut() } }
+                else if lib.mode == .compare { withAnimation(Theme.quick) { lib.cmpZoom = max(lib.cmpZoom / 1.4, 1); if lib.cmpZoom <= 1.01 { lib.cmpZoom = 1; lib.cmpPan = .zero } } }
             case "i": withAnimation(Theme.spring) { lib.showInspector.toggle() }
             case "b": if let item = lib.activeItem { withAnimation(Theme.spring) { lib.toggleCollapse(item.burstID) } }
             case "k":
@@ -278,16 +305,19 @@ struct RootView: View {
 struct MenuBridge: View {
     @Binding var showUpload: Bool
     @Binding var showExport: Bool
+    @Binding var showHelp: Bool
     var body: some View {
         Color.clear
             .onReceive(NotificationCenter.default.publisher(for: .keeperShowUpload)) { _ in showUpload = true }
             .onReceive(NotificationCenter.default.publisher(for: .keeperShowExport)) { _ in showExport = true }
+            .onReceive(NotificationCenter.default.publisher(for: .keeperShowHelp)) { _ in showHelp = true }
     }
 }
 
 extension Notification.Name {
     static let keeperShowUpload = Notification.Name("keeper.showUpload")
     static let keeperShowExport = Notification.Name("keeper.showExport")
+    static let keeperShowHelp = Notification.Name("keeper.showHelp")
     static let keeperUpdateResult = Notification.Name("keeper.updateResult")
 }
 
